@@ -72,12 +72,12 @@ func NewSession(providerGUID windows.GUID, options ...Option) (*Session, error) 
 
 	utf16Name, err := windows.UTF16FromString(s.config.Name)
 	if err != nil {
-		return nil, fmt.Errorf("incorrect session name; %w", err) // unlikely
+		return nil, fmt.Errorf("incorrect session name; %v", err) // unlikely
 	}
 	s.etwSessionName = utf16Name
 
 	if err := s.createETWSession(); err != nil {
-		return nil, fmt.Errorf("failed to create session; %w", err)
+		return nil, fmt.Errorf("failed to create session; %v", err)
 	}
 	// TODO: consider setting a finalizer with .Close
 
@@ -93,7 +93,7 @@ func (s *Session) Process(cb EventCallback) error {
 	s.callback = cb
 
 	if err := s.subscribeToProvider(); err != nil {
-		return fmt.Errorf("failed to subscribe to provider; %w", err)
+		return fmt.Errorf("failed to subscribe to provider; %v", err)
 	}
 
 	cgoKey := newCallbackKey(s)
@@ -101,7 +101,7 @@ func (s *Session) Process(cb EventCallback) error {
 
 	// Will block here until being closed.
 	if err := s.processEvents(cgoKey); err != nil {
-		return fmt.Errorf("error processing events; %w", err)
+		return fmt.Errorf("error processing events; %v", err)
 	}
 	return nil
 }
@@ -124,11 +124,11 @@ func (s *Session) Close() error {
 	// "Be sure to disable all providers before stopping the session."
 	// https://docs.microsoft.com/en-us/windows/win32/etw/configuring-and-starting-an-event-tracing-session
 	if err := s.unsubscribeFromProvider(); err != nil {
-		return fmt.Errorf("failed to disable provider; %w", err)
+		return fmt.Errorf("failed to disable provider; %v", err)
 	}
 
 	if err := s.stopSession(); err != nil {
-		return fmt.Errorf("failed to stop session; %w", err)
+		return fmt.Errorf("failed to stop session; %v", err)
 	}
 	return nil
 }
@@ -142,7 +142,7 @@ func (s *Session) Close() error {
 func KillSession(name string) error {
 	nameUTF16, err := windows.UTF16FromString(name)
 	if err != nil {
-		return fmt.Errorf("failed to convert session name to utf16; %w", err)
+		return fmt.Errorf("failed to convert session name to utf16; %v", err)
 	}
 	sessionNameLength := len(nameUTF16) * int(unsafe.Sizeof(nameUTF16[0]))
 
@@ -220,7 +220,7 @@ func (s *Session) createETWSession() error {
 		s.propertiesBuf = propertiesBuf
 		return nil
 	default:
-		return fmt.Errorf("StartTraceW failed; %w", err)
+		return fmt.Errorf("StartTraceW failed; %v", err)
 	}
 }
 
@@ -232,7 +232,7 @@ func (s *Session) processEvents(callbackContextKey uintptr) error {
 		(C.PVOID)(callbackContextKey),
 	)
 	if C.INVALID_PROCESSTRACE_HANDLE == traceHandle {
-		return fmt.Errorf("OpenTraceW failed; %w", windows.GetLastError())
+		return fmt.Errorf("OpenTraceW failed; %v", windows.GetLastError())
 	}
 
 	// BLOCKS UNTIL CLOSED!
@@ -254,7 +254,7 @@ func (s *Session) processEvents(callbackContextKey uintptr) error {
 	case windows.ERROR_SUCCESS, windows.ERROR_CANCELLED:
 		return nil // Cancelled is obviously ok when we block until closing.
 	default:
-		return fmt.Errorf("ProcessTrace failed; %w", status)
+		return fmt.Errorf("ProcessTrace failed; %v", status)
 	}
 }
 
@@ -404,7 +404,7 @@ func (s *Session) subscribeToProvider() error {
 	)
 
 	if status := windows.Errno(ret); status != windows.ERROR_SUCCESS {
-		return fmt.Errorf("EVENT_CONTROL_CODE_ENABLE_PROVIDER failed; %w", status)
+		return fmt.Errorf("EVENT_CONTROL_CODE_ENABLE_PROVIDER failed; %v", status)
 	}
 	return nil
 }
@@ -531,7 +531,7 @@ func (e *Event) EventProperties() (map[string]interface{}, error) {
 
 	p, err := newPropertyParser(e.eventRecord)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse event properties; %w", err)
+		return nil, fmt.Errorf("failed to parse event properties; %v", err)
 	}
 	defer p.free()
 
@@ -542,7 +542,7 @@ func (e *Event) EventProperties() (map[string]interface{}, error) {
 		if err != nil {
 			// Parsing values we consume given event data buffer with var length chunks.
 			// If we skip any -- we'll lost offset, so fail early.
-			return nil, fmt.Errorf("failed to parse %q value; %w", name, err)
+			return nil, fmt.Errorf("failed to parse %q value; %v", name, err)
 		}
 		properties[name] = value
 	}
@@ -686,7 +686,7 @@ func newPropertyParser(r C.PEVENT_RECORD) (*propertyParser, error) {
 		if info != nil {
 			C.free(unsafe.Pointer(info))
 		}
-		return nil, fmt.Errorf("failed to get event information; %w", err)
+		return nil, fmt.Errorf("failed to get event information; %v", err)
 	}
 	ptrSize := unsafe.Sizeof(uint64(0))
 	if r.EventHeader.Flags&C.EVENT_HEADER_FLAG_32_BIT_HEADER == C.EVENT_HEADER_FLAG_32_BIT_HEADER {
@@ -724,7 +724,7 @@ func getEventInformation(pEvent C.PEVENT_RECORD) (C.PTRACE_EVENT_INFO, error) {
 	}
 
 	if status := windows.Errno(ret); status != windows.ERROR_SUCCESS {
-		return pInfo, fmt.Errorf("TdhGetEventInformation failed; %w", status)
+		return pInfo, fmt.Errorf("TdhGetEventInformation failed; %v", status)
 	}
 
 	return pInfo, nil
@@ -752,7 +752,7 @@ func (p *propertyParser) getPropertyValue(i int) (interface{}, error) {
 	var arraySizeC C.uint
 	ret := C.GetArraySize(p.record, p.info, C.int(i), &arraySizeC)
 	if status := windows.Errno(ret); status != windows.ERROR_SUCCESS {
-		return nil, fmt.Errorf("failed to get array size; %w", status)
+		return nil, fmt.Errorf("failed to get array size; %v", status)
 	}
 
 	arraySize := int(arraySizeC)
@@ -791,7 +791,7 @@ func (p *propertyParser) parseStruct(i int) (map[string]interface{}, error) {
 		name := p.getPropertyName(j)
 		value, err := p.getPropertyValue(j)
 		if err != nil {
-			return nil, fmt.Errorf("failed parse field %q of complex property type; %w", name, err)
+			return nil, fmt.Errorf("failed parse field %q of complex property type; %v", name, err)
 		}
 		structure[name] = value
 	}
@@ -812,13 +812,13 @@ var (
 func (p *propertyParser) parseSimpleType(i int) (string, error) {
 	mapInfo, err := getMapInfo(p.record, p.info, i)
 	if err != nil {
-		return "", fmt.Errorf("failed to get map info; %w", err)
+		return "", fmt.Errorf("failed to get map info; %v", err)
 	}
 
 	var propertyLength C.uint
 	ret := C.GetPropertyLength(p.record, p.info, C.int(i), &propertyLength)
 	if status := windows.Errno(ret); status != windows.ERROR_SUCCESS {
-		return "", fmt.Errorf("failed to get property length; %w", status)
+		return "", fmt.Errorf("failed to get property length; %v", status)
 	}
 
 	inType := uintptr(C.GetInType(p.info, C.int(i)))
@@ -854,7 +854,7 @@ retryLoop:
 		case windows.ERROR_SUCCESS:
 			break retryLoop
 		default:
-			return "", fmt.Errorf("TdhFormatProperty failed; %w", status)
+			return "", fmt.Errorf("TdhFormatProperty failed; %v", status)
 		}
 	}
 	p.data += uintptr(userDataConsumed)
@@ -877,7 +877,7 @@ func getMapInfo(event C.PEVENT_RECORD, info C.PTRACE_EVENT_INFO, i int) (unsafe.
 	case windows.ERROR_INSUFFICIENT_BUFFER:
 		// Info exists -- need a buffer.
 	default:
-		return nil, fmt.Errorf("TdhGetEventMapInformation failed to get size; %w", status)
+		return nil, fmt.Errorf("TdhGetEventMapInformation failed to get size; %v", status)
 	}
 
 	// Get the info itself.
@@ -888,7 +888,7 @@ func getMapInfo(event C.PEVENT_RECORD, info C.PTRACE_EVENT_INFO, i int) (unsafe.
 		(C.PEVENT_MAP_INFO)(unsafe.Pointer(&mapInfo[0])),
 		&mapSize)
 	if status := windows.Errno(ret); status != windows.ERROR_SUCCESS {
-		return nil, fmt.Errorf("TdhGetEventMapInformation failed; %w", status)
+		return nil, fmt.Errorf("TdhGetEventMapInformation failed; %v", status)
 	}
 
 	if len(mapInfo) == 0 {

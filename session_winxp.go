@@ -70,12 +70,12 @@ func NewSession(providerGUID windows.GUID, options ...Option) (*Session, error) 
 
 	utf16Name, err := windows.UTF16FromString(s.config.Name)
 	if err != nil {
-		return nil, fmt.Errorf("incorrect session name; %w", err) // unlikely
+		return nil, fmt.Errorf("incorrect session name; %v", err) // unlikely
 	}
 	s.etwSessionName = utf16Name
 
 	if err := s.createETWSession(); err != nil {
-		return nil, fmt.Errorf("failed to create session; %w", err)
+		return nil, fmt.Errorf("failed to create session; %v", err)
 	}
 	// TODO: consider setting a finalizer with .Close
 
@@ -91,7 +91,7 @@ func (s *Session) Process(cb EventCallback) error {
 	s.callback = cb
 
 	if err := s.subscribeToProvider(); err != nil {
-		return fmt.Errorf("failed to subscribe to provider; %w", err)
+		return fmt.Errorf("failed to subscribe to provider; %v", err)
 	}
 
 	cgoKey := newCallbackKey(s)
@@ -99,7 +99,7 @@ func (s *Session) Process(cb EventCallback) error {
 
 	// Will block here until being closed.
 	if err := s.processEvents(cgoKey); err != nil {
-		return fmt.Errorf("error processing events; %w", err)
+		return fmt.Errorf("error processing events; %v", err)
 	}
 	return nil
 }
@@ -122,11 +122,11 @@ func (s *Session) Close() error {
 	// "Be sure to disable all providers before stopping the session."
 	// https://docs.microsoft.com/en-us/windows/win32/etw/configuring-and-starting-an-event-tracing-session
 	if err := s.unsubscribeFromProvider(); err != nil {
-		return fmt.Errorf("failed to disable provider; %w", err)
+		return fmt.Errorf("failed to disable provider; %v", err)
 	}
 
 	if err := s.stopSession(); err != nil {
-		return fmt.Errorf("failed to stop session; %w", err)
+		return fmt.Errorf("failed to stop session; %v", err)
 	}
 	return nil
 }
@@ -140,7 +140,7 @@ func (s *Session) Close() error {
 func KillSession(name string) error {
 	nameUTF16, err := windows.UTF16FromString(name)
 	if err != nil {
-		return fmt.Errorf("failed to convert session name to utf16; %w", err)
+		return fmt.Errorf("failed to convert session name to utf16; %v", err)
 	}
 	sessionNameLength := len(nameUTF16) * int(unsafe.Sizeof(nameUTF16[0]))
 
@@ -218,7 +218,7 @@ func (s *Session) createETWSession() error {
 		s.propertiesBuf = propertiesBuf
 		return nil
 	default:
-		return fmt.Errorf("StartTraceW failed; %w", err)
+		return fmt.Errorf("StartTraceW failed; %v", err)
 	}
 }
 
@@ -230,7 +230,7 @@ func (s *Session) processEvents(callbackContextKey uintptr) error {
 		(C.PVOID)(callbackContextKey),
 	)
 	if C.INVALID_PROCESSTRACE_HANDLE == traceHandle {
-		return fmt.Errorf("OpenTraceW failed; %w", windows.GetLastError())
+		return fmt.Errorf("OpenTraceW failed; %v", windows.GetLastError())
 	}
 
 	// BLOCKS UNTIL CLOSED!
@@ -252,7 +252,7 @@ func (s *Session) processEvents(callbackContextKey uintptr) error {
 	case windows.ERROR_SUCCESS, windows.ERROR_CANCELLED:
 		return nil // Cancelled is obviously ok when we block until closing.
 	default:
-		return fmt.Errorf("ProcessTrace failed; %w", status)
+		return fmt.Errorf("ProcessTrace failed; %v", status)
 	}
 }
 
