@@ -5,7 +5,6 @@ package main
 import (
 	"encoding/json"
 	"flag"
-	"io/ioutil"
 	"log"
 	"os"
 	"os/signal"
@@ -14,12 +13,11 @@ import (
 
 	"golang.org/x/sys/windows"
 
-	"github.com/bi-zone/etw"
+	"github.com/tarusov/etw"
 )
 
 func main() {
 	var (
-		optSilent = flag.Bool("silent", false, "Stop sending logs to stderr")
 		optHeader = flag.Bool("header", false, "Show event header in output")
 		optID     = flag.Int("id", -1, "Capture only specified ID")
 	)
@@ -27,9 +25,6 @@ func main() {
 
 	if flag.NArg() != 1 {
 		log.Fatalf("Usage: %s [opts] <providerGUID>", filepath.Base(os.Args[0]))
-	}
-	if *optSilent {
-		log.SetOutput(ioutil.Discard)
 	}
 
 	guid, err := windows.GUIDFromString(flag.Arg(0))
@@ -88,6 +83,7 @@ func main() {
 		err = session.Close()
 		if err != nil {
 			log.Printf("[ERR] (!!!) Failed to stop session: %s\n", err)
+			os.Exit(1)
 		} else {
 			break
 		}

@@ -1,4 +1,4 @@
-module github.com/bi-zone/etw
+module github.com/tarusov/etw
 
 go 1.13
 

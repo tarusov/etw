@@ -1,3 +1,5 @@
+// +build windows,!winxp
+
 // MinGW headers are always restricted to the lowest possible Windows version,
 // so specify Win7+ manually.
 #undef _WIN32_WINNT
