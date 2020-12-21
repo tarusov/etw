@@ -3,65 +3,39 @@
 package main
 
 import (
-	"encoding/json"
-	"flag"
+	"fmt"
 	"log"
 	"os"
 	"os/signal"
 	"path/filepath"
 	"sync"
 
-	"golang.org/x/sys/windows"
-
 	"github.com/tarusov/etw"
 )
 
+/*
+	This example tracing events for target provider by GUID or name.
+*/
 func main() {
-	var (
-		optHeader = flag.Bool("header", false, "Show event header in output")
-		optID     = flag.Int("id", -1, "Capture only specified ID")
-	)
-	flag.Parse()
-
-	if flag.NArg() != 1 {
-		log.Fatalf("Usage: %s [opts] <providerGUID>", filepath.Base(os.Args[0]))
+	if len(os.Args) != 2 {
+		log.Fatalf("Usage: %s <providerGUID>", filepath.Base(os.Args[0]))
 	}
 
-	guid, err := windows.GUIDFromString(flag.Arg(0))
+	session, err := etw.NewSession(&etw.SessionOptions{
+		ProviderName: os.Args[1],
+		TraceLevel:   "verbose",
+	})
 	if err != nil {
-		log.Fatalf("Incorrect GUID given; %s", err)
-	}
-	session, err := etw.NewSession(guid)
-	if err != nil {
-		log.Fatalf("Failed to create etw session; %s", err)
+		log.Fatalf("[ERR] Create session failed: %v", err.Error())
 	}
 
-	enc := json.NewEncoder(os.Stdout)
-	enc.SetIndent("", "  ")
-	cb := func(e *etw.Event) {
-		log.Printf("[DBG] Event %d from %s\n", e.Header.ID, e.Header.TimeStamp)
-		if *optID > 0 && *optID != int(e.Header.ID) {
-			return
-		}
-
-		event := make(map[string]interface{})
-		if *optHeader {
-			event["Header"] = e.Header
-		}
-		if data, err := e.EventProperties(); err == nil {
-			event["EventProperties"] = data
-		} else {
-			log.Printf("[ERR] Failed to enumerate event properties: %s", err)
-		}
-		_ = enc.Encode(event)
+	cb := func(data []byte) {
+		fmt.Println(string(data))
 	}
 
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() {
-		log.Printf("[DBG] Starting to listen ETW events from %s", guid)
-
-		// Block until .Close().
 		if err := session.Process(cb); err != nil {
 			log.Printf("[ERR] Got error processing events: %s", err)
 		} else {
@@ -82,7 +56,7 @@ func main() {
 
 		err = session.Close()
 		if err != nil {
-			log.Printf("[ERR] (!!!) Failed to stop session: %s\n", err)
+			log.Printf("[ERR] Failed to stop session: %s\n", err)
 			os.Exit(1)
 		} else {
 			break

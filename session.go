@@ -3,21 +3,23 @@
 package etw
 
 import (
-	"fmt"
+	"github.com/tarusov/etw/internal/session"
 )
 
-// ExistsError is returned by NewSession if the session name is already taken.
-//
-// Having ExistsError you have an option to force kill the session:
-//
-//		var exists etw.ExistsError
-//		s, err = etw.NewSession(s.guid, etw.WithName(sessionName))
-//		if errors.As(err, &exists) {
-//			err = etw.KillSession(exists.SessionName)
-//		}
-//
-type ExistsError struct{ SessionName string }
+// Session interface defines are module.
+type Session interface {
+	Process(cb func([]byte)) error // Callback is JSON parser.
+	Close() error
+}
 
-func (e ExistsError) Error() string {
-	return fmt.Sprintf("session %q already exist", e.SessionName)
+// SessionOptions defines session options.
+type SessionOptions struct {
+	ProviderName string
+	KernelArgs   []string
+	TraceLevel   string
+}
+
+// NewSession create new event tracing session.
+func NewSession(opts *SessionOptions) (Session, error) {
+	return session.New(opts.ProviderName, opts.TraceLevel, opts.KernelArgs)
 }

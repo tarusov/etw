@@ -1,28 +1,8 @@
-// +build windows,!winxp
+// +build windows
+// +build !winxp
 
 #include "session_win7.h"
 #include <in6addr.h>
-
-// handleEvent is exported from Go to CGO. Unfortunately CGO can't vary calling
-// convention of exported functions (or we don't know da way), so wrap the Go's
-// callback with a stdcall one.
-extern void handleEvent(PEVENT_RECORD e);
-
-void WINAPI stdcallHandleEvent(PEVENT_RECORD e) {
-    handleEvent(e);
-}
-
-// OpenTraceHelper helps to access EVENT_TRACE_LOGFILEW union fields and pass
-// pointer to C not warning CGO checker.
-TRACEHANDLE OpenTraceHelper(LPWSTR name, PVOID ctx) {
-    EVENT_TRACE_LOGFILEW trace = {0};
-    trace.LoggerName = name;
-    trace.Context = ctx;
-    trace.ProcessTraceMode = PROCESS_TRACE_MODE_REAL_TIME | PROCESS_TRACE_MODE_EVENT_RECORD;
-    trace.EventRecordCallback = stdcallHandleEvent;
-
-    return OpenTraceW(&trace);
-}
 
 int getLengthFromProperty(PEVENT_RECORD event, PROPERTY_DATA_DESCRIPTOR* dataDescriptor, UINT32* length) {
     DWORD propertySize = 0;
@@ -97,8 +77,6 @@ ULONG GetPropertyLength(PEVENT_RECORD event, PTRACE_EVENT_INFO info, int i, UINT
 // All the function below is a helpers for go code to handle dynamic arrays and unnamed unions.
 ///////////////////////////////////////////////////////////////////////////////////////////////
 
-// Returns ULONGLONG instead of string pointer cos event data descriptor expects exactly that
-// type.
 ULONGLONG GetPropertyName(PTRACE_EVENT_INFO info , int i) {
     return (ULONGLONG)((PBYTE)(info) + info->EventPropertyInfoArray[i].NameOffset);
 }

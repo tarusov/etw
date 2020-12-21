@@ -1,16 +1,13 @@
-// +build windows,winxp
+// +build windows
+// +build winxp
 
 // MinGW headers are always restricted to the lowest possible Windows version,
 // so specify Windows XP.
 #undef _WIN32_WINNT
-#define _WIN32_WINNT _WIN32_WINNT_WINXP
+#define _WIN32_WINNT 0x0501
 
 #include <windows.h>
 #include <evntcons.h>
-
-// OpenTraceHelper helps to access EVENT_TRACE_LOGFILEW union fields and pass
-// pointer to C not warning CGO checker.
-TRACEHANDLE OpenTraceHelper(LPWSTR name, PVOID ctx);
 
 // Event header unions getters.
 LONGLONG GetTimeStamp(EVENT_HEADER header);
